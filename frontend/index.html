@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Relay — AI Chat</title>
+<title>Echo — AI Chat</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
@@ -44,6 +44,12 @@
     flex-shrink: 0;
   }
 
+  .brand-block {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
   .brand {
     display: flex;
     align-items: center;
@@ -61,6 +67,14 @@
     background: var(--accent);
     box-shadow: 0 0 8px var(--accent);
     flex-shrink: 0;
+  }
+
+  .brand-credit {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding-left: 19px;
   }
 
   .status {
@@ -354,7 +368,10 @@
 <body>
 
   <div class="topbar">
-    <div class="brand"><span class="brand-mark"></span>Relay</div>
+    <div class="brand-block">
+      <div class="brand"><span class="brand-mark"></span>Echo</div>
+      <div class="brand-credit">by Sathwik Akula</div>
+    </div>
     <div class="status">
       <span class="status-dot" id="statusDot"></span>
       <span id="statusText">checking backend…</span>
@@ -443,7 +460,7 @@
     msg.className = 'msg ' + role;
     const label = document.createElement('div');
     label.className = 'msg-label';
-    label.textContent = role === 'user' ? 'You' : role === 'assistant' ? 'AI' : 'Error';
+    label.textContent = role === 'user' ? 'You' : role === 'assistant' ? 'Echo' : 'Error';
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
     bubble.textContent = text;
@@ -555,3 +572,7 @@
 </script>
 </body>
 </html>
+
+  
+    
+  
