@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relay — AI Chat</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #0e1110;
+    --panel: #161a18;
+    --line: #2a2f2c;
+    --text: #e9ece8;
+    --muted: #8b9590;
+    --accent: #7fff8f;
+    --accent-dim: #3a5c40;
+    --user-bubble: #1d2320;
+    --error: #ff6b5e;
+    --radius: 3px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: -0.02em;
+  }
+
+  .brand-mark {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    flex-shrink: 0;
+  }
+
+  .status {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+
+  .status-dot.live { background: var(--accent); }
+  .status-dot.err { background: var(--error); }
+
+  main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 0 12px;
+  }
+
+  .thread {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .empty-state {
+    margin: 60px auto;
+    max-width: 480px;
+    text-align: center;
+    color: var(--muted);
+  }
+
+  .empty-state .glyph {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+
+  .empty-state p {
+    font-size: 13px;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .msg {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    animation: rise 0.25s ease-out;
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+
+  .msg.user .msg-label { color: var(--muted); }
+  .msg.assistant .msg-label { color: var(--accent); }
+
+  .bubble {
+    font-size: 14.5px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+  }
+
+  .msg.user .bubble {
+    background: var(--user-bubble);
+    border: 1px solid var(--line);
+    align-self: flex-start;
+    width: 100%;
+  }
+
+  .msg.assistant .bubble {
+    background: transparent;
+    border-left: 2px solid var(--accent-dim);
+    padding-left: 16px;
+  }
+
+  .msg.error .bubble {
+    border-left: 2px solid var(--error);
+    color: var(--error);
+    padding-left: 16px;
+    background: transparent;
+  }
+
+  .typing {
+    display: flex;
+    gap: 4px;
+    padding: 4px 0 4px 16px;
+  }
+
+  .typing span {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent-dim);
+    animation: pulse 1.2s infinite ease-in-out;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.15s; }
+  .typing span:nth-child(3) { animation-delay: 0.3s; }
+
+  @keyframes pulse {
+    0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1); background: var(--accent); }
+  }
+
+  footer {
+    flex-shrink: 0;
+    border-top: 1px solid var(--line);
+    padding: 16px 20px 20px;
+  }
+
+  .composer {
+    max-width: 720px;
+    margin: 0 auto;
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  textarea {
+    flex: 1;
+    resize: none;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    padding: 12px 14px;
+    line-height: 1.5;
+    max-height: 160px;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+
+  textarea:focus {
+    border-color: var(--accent-dim);
+  }
+
+  textarea::placeholder {
+    color: var(--muted);
+  }
+
+  button#send {
+    background: var(--accent);
+    color: #0e1110;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 12px 18px;
+    cursor: pointer;
+    transition: filter 0.15s ease, transform 0.05s ease;
+    flex-shrink: 0;
+  }
+
+  button#send:hover:not(:disabled) { filter: brightness(1.1); }
+  button#send:active:not(:disabled) { transform: scale(0.97); }
+
+  button#send:disabled {
+    background: var(--line);
+    color: var(--muted);
+    cursor: not-allowed;
+  }
+
+  .hint {
+    max-width: 720px;
+    margin: 8px auto 0;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .config-link {
+    color: var(--muted);
+    text-decoration: underline;
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 11px;
+    padding: 0;
+  }
+  .config-link:hover { color: var(--accent); }
+
+  /* Settings panel */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+  .overlay.open { display: flex; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    width: 90%;
+    max-width: 420px;
+    padding: 22px;
+  }
+
+  .panel h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    margin: 0 0 14px;
+  }
+
+  .panel label {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+
+  .panel input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    outline: none;
+  }
+  .panel input:focus { border-color: var(--accent-dim); }
+
+  .panel-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .panel-actions button {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 9px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .panel-actions button.primary {
+    background: var(--accent);
+    color: #0e1110;
+    border-color: var(--accent);
+  }
+
+  main::-webkit-scrollbar { width: 8px; }
+  main::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand"><span class="brand-mark"></span>Relay</div>
+    <div class="status">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">checking backend…</span>
+      <button class="config-link" id="openSettings" style="margin-left:12px;">configure</button>
+    </div>
+  </div>
+
+  <main id="main">
+    <div class="thread" id="thread">
+      <div class="empty-state" id="emptyState">
+        <div class="glyph">No messages yet</div>
+        <p>Type below to start a conversation. Messages are sent to your own backend, which relays them to Groq using your API key.</p>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="composer">
+      <textarea id="input" placeholder="Send a message…" rows="1"></textarea>
+      <button id="send">Send</button>
+    </div>
+    <div class="hint">
+      <span>Enter to send · Shift+Enter for new line</span>
+      <span id="backendLabel"></span>
+    </div>
+  </footer>
+
+  <div class="overlay" id="overlay">
+    <div class="panel">
+      <h2>Backend configuration</h2>
+      <label for="backendUrl">Backend URL</label>
+      <input id="backendUrl" type="text" placeholder="http://localhost:3000" />
+      <div class="panel-actions">
+        <button id="cancelSettings">Cancel</button>
+        <button id="saveSettings" class="primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const thread = document.getElementById('thread');
+  const emptyState = document.getElementById('emptyState');
+  const input = document.getElementById('input');
+  const sendBtn = document.getElementById('send');
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const backendLabel = document.getElementById('backendLabel');
+  const overlay = document.getElementById('overlay');
+  const backendUrlInput = document.getElementById('backendUrl');
+
+  let backendUrl = localStorage.getItem('relay_backend_url') || 'http://localhost:3000';
+  let history = [];
+  let isSending = false;
+
+  function renderBackendLabel() {
+    try {
+      const u = new URL(backendUrl);
+      backendLabel.textContent = u.host;
+    } catch {
+      backendLabel.textContent = backendUrl;
+    }
+  }
+  renderBackendLabel();
+
+  async function checkHealth() {
+    statusText.textContent = 'checking backend…';
+    statusDot.className = 'status-dot';
+    try {
+      const res = await fetch(backendUrl.replace(/\/$/, '') + '/health');
+      if (res.ok) {
+        statusDot.className = 'status-dot live';
+        statusText.textContent = 'connected';
+      } else {
+        throw new Error('bad status');
+      }
+    } catch {
+      statusDot.className = 'status-dot err';
+      statusText.textContent = 'backend unreachable';
+    }
+  }
+  checkHealth();
+
+  function addMessage(role, text) {
+    emptyState.style.display = 'none';
+    const msg = document.createElement('div');
+    msg.className = 'msg ' + role;
+    const label = document.createElement('div');
+    label.className = 'msg-label';
+    label.textContent = role === 'user' ? 'You' : role === 'assistant' ? 'AI' : 'Error';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+    msg.appendChild(label);
+    msg.appendChild(bubble);
+    thread.appendChild(msg);
+    document.getElementById('main').scrollTop = document.getElementById('main').scrollHeight;
+    return bubble;
+  }
+
+  function addTyping() {
+    const msg = document.createElement('div');
+    msg.className = 'msg assistant';
+    msg.id = 'typingIndicator';
+    const typing = document.createElement('div');
+    typing.className = 'typing';
+    typing.innerHTML = '<span></span><span></span><span></span>';
+    msg.appendChild(typing);
+    thread.appendChild(msg);
+    document.getElementById('main').scrollTop = document.getElementById('main').scrollHeight;
+  }
+
+  function removeTyping() {
+    const el = document.getElementById('typingIndicator');
+    if (el) el.remove();
+  }
+
+  function autoGrow() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+  }
+  input.addEventListener('input', autoGrow);
+
+  async function sendMessage() {
+    const text = input.value.trim();
+    if (!text || isSending) return;
+
+    isSending = true;
+    sendBtn.disabled = true;
+    input.value = '';
+    autoGrow();
+
+    addMessage('user', text);
+    history.push({ role: 'user', content: text });
+    addTyping();
+
+    try {
+      const res = await fetch(backendUrl.replace(/\/$/, '') + '/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: history })
+      });
+
+      removeTyping();
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        addMessage('error', errData.error || 'Request failed (' + res.status + ')');
+        statusDot.className = 'status-dot err';
+        statusText.textContent = 'error';
+        return;
+      }
+
+      const data = await res.json();
+      addMessage('assistant', data.reply);
+      history.push({ role: 'assistant', content: data.reply });
+      statusDot.className = 'status-dot live';
+      statusText.textContent = 'connected';
+    } catch (err) {
+      removeTyping();
+      addMessage('error', 'Could not reach backend at ' + backendUrl + '. Check that it is running and the URL is correct.');
+      statusDot.className = 'status-dot err';
+      statusText.textContent = 'backend unreachable';
+    } finally {
+      isSending = false;
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+
+  sendBtn.addEventListener('click', sendMessage);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  document.getElementById('openSettings').addEventListener('click', () => {
+    backendUrlInput.value = backendUrl;
+    overlay.classList.add('open');
+  });
+  document.getElementById('cancelSettings').addEventListener('click', () => {
+    overlay.classList.remove('open');
+  });
+  document.getElementById('saveSettings').addEventListener('click', () => {
+    const val = backendUrlInput.value.trim();
+    if (val) {
+      backendUrl = val;
+      localStorage.setItem('relay_backend_url', backendUrl);
+      renderBackendLabel();
+      overlay.classList.remove('open');
+      checkHealth();
+    }
+  });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+</script>
+</body>
+</html>
